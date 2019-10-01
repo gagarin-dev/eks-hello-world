@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: '
+Creates:
+- IAM Role to allow EKS to manage clusters.
+Version: 2019-08-26
+Author: gagarin.dev'
+
+Parameters:    # =============[ PARAMETERS ]==========================
+
+  pEksServiceRoleName:
+    Description: Name of EKS Service Role (unique in the account)
+    Default: eksServiceRole
+    Type: String
+
+  pTagEnvironmentType:
+    Type: String
+    Default: prod
+    AllowedValues: 
+      - prod
+      - dev
+    Description: 'Development or Production environment.'
+
+  pProjectName:
+    Description: Name of the Project
+    Type: String
+
+Resources:    # ==============[ RESOURCES ]==========================
+
+  rEKSClusterRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Ref pEksServiceRoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - eks.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy    # provides Kubernetes the permissions it requires to manage resources on your behalf
+        - arn:aws:iam::aws:policy/AmazonEKSServicePolicy    # allows Amazon Elastic Container Service for Kubernetes to create and manage the necessary resources to operate EKS Clusters
+      Path: /
+      Tags:
+        - { Key: Environment, Value: !Ref pTagEnvironmentType }
+        - { Key: ProjectName, Value: !Ref pProjectName }
+
+
+Outputs:    # ==============[ OUTPUTS ]==========================
+  oEKSClusterRoleArn:
+    Description: ARN of the 'rEKSClusterRole' IAM role
+    Value: !GetAtt rEKSClusterRole.Arn

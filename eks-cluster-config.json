@@ -1,0 +1,33 @@
+{
+    "name": "HelloEksWorld", 
+    "version": "1.14", 
+    "roleArn": "arn:aws:iam::1234567890:role/eksServiceRole", 
+    "resourcesVpcConfig": {
+        "subnetIds": [
+            "subnet-03g17kd1o8bfd7ab9",
+            "subnet-02h87l3bpd24472fe",
+            "subnet-05i01ma4q901c6124",
+            "subnet-0bjb0n7ar34e10472"
+        ], 
+        "securityGroupIds": [
+            "sg-09m3cu4fd3ef299db"
+        ], 
+        "endpointPublicAccess": false, 
+        "endpointPrivateAccess": true
+    },
+    "logging": {
+        "clusterLogging": [
+            {
+                "types": [
+                    "api",
+                    "audit",
+                    "authenticator",
+                    "controllerManager",
+                    "scheduler"
+                ],
+                "enabled": true
+            }
+        ]
+    },
+    "clientRequestToken": ""
+}
