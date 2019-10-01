@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'EKS Control Station template.
+  ** Version: 09-30-2019
+  ** Author: gagarin.dev'
+
+
+Parameters:    # =============[ PARAMETERS ]==========================
+
+  pEC2InstanceName:
+    Default: eks-control-station
+    Description: Name (tag) of the "Control Station" EC2 instance
+    Type: String
+
+  pLatestBaseAmiId:  # AWS public parameter, https://aws.amazon.com/blogs/compute/query-for-the-latest-amazon-linux-ami-ids-using-aws-systems-manager-parameter-store/
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+
+  pKeyName:
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: 'AWS::EC2::KeyPair::KeyName'
+
+  pInstanceSecurityGroupId:
+    Type: 'AWS::EC2::SecurityGroup::Id'
+    Description: Select a security group (e.g sg-0123ccfcc456789b3)
+
+  pSubnetId:
+    Description: ID of the Public Subnet (e.g., subnet-09c876d543bfd7abc)
+    Type: 'AWS::EC2::Subnet::Id'
+
+  pEnvironmentType:
+    Description: "'prod' or 'dev' environment"
+    Default: 'dev'
+    AllowedValues:
+      - 'dev'
+      - 'prod'
+
+  pEksClusterArn:
+    Default: "*"
+    Type: String
+    Description: ARN of the EKS Cluster to grant access to (* for All)
+
+Resources:    # ==============[ RESOURCES ]==========================
+
+  rAmiToolsEc2IamInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - Ref: rAmiToolsEC2Role
+      InstanceProfileName: !Sub EKS-ControlStation-Profile-${AWS::StackName} 
+
+  rAmiToolsEC2Role:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy'    # Allows CloudWatch Agent to interact with CloudWatch
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM'    # Enables the instance to communicate with the Systems Manager API
+      Path: /
+      Policies:
+        -
+          PolicyName: !Sub EKS-ControlStation-AccessEks-${AWS::StackName}
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - eks:DescribeCluster
+                Resource: !Ref pEksClusterArn
+      RoleName: !Sub EKS-ControlStation-Role-${AWS::StackName}
+
+  rEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      IamInstanceProfile: !Ref rAmiToolsEc2IamInstanceProfile
+      ImageId: !Ref pLatestBaseAmiId
+      InstanceType: t2.micro
+      KeyName: !Ref pKeyName
+      SecurityGroupIds:
+        - 
+          !Ref pInstanceSecurityGroupId
+      SubnetId: !Ref pSubnetId
+      Tags:
+        - { Key: Name, Value: !Ref pEC2InstanceName }
+        - { Key: Environment, Value: !Ref pEnvironmentType }
+      UserData:    # UserData log: /var/log/cloud-init-output.log
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash -x
+            yum update -y
+            # Install aws-iam-authenticator
+            curl -o aws-iam-authenticator https://amazon-eks.s3-us-west-2.amazonaws.com/1.14.6/2019-08-22/bin/linux/amd64/aws-iam-authenticator
+            chmod +x ./aws-iam-authenticator
+            mkdir -p $HOME/bin && cp ./aws-iam-authenticator $HOME/bin/aws-iam-authenticator && export PATH=$HOME/bin:$PATH
+            echo 'export PATH=$HOME/bin:$PATH' >> ~/.bashrc
+            # Install kubectl
+            curl -o kubectl https://amazon-eks.s3-us-west-2.amazonaws.com/1.14.6/2019-08-22/bin/linux/amd64/kubectl
+            chmod +x ./kubectl
+            cp ./kubectl $HOME/bin/kubectl
+            
