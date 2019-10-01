@@ -31,6 +31,7 @@ Parameters:    # =============[ PARAMETERS ]==========================
   pEnvironmentType:
     Description: "'prod' or 'dev' environment"
     Default: 'dev'
+    Type: String
     AllowedValues:
       - 'dev'
       - 'prod'
@@ -75,7 +76,7 @@ Resources:    # ==============[ RESOURCES ]==========================
               -
                 Effect: "Allow"
                 Action:
-                  - eks:DescribeCluster
+                  - eks:*
                 Resource: !Ref pEksClusterArn
       RoleName: !Sub EKS-ControlStation-Role-${AWS::StackName}
 
